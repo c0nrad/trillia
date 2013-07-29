@@ -87,8 +87,3 @@ setupQuestion = (question, answers, idBoard, next) ->
     ]
 
   , next
-
-
-beginRound(secrets.idBoard, questions[1])
-#beginRound(secrets.idBoard, question)
-
