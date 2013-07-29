@@ -36,7 +36,6 @@ beginRound = (idBoard, question) ->
       setTimeout next, 3 * 1000
     ]
 
-
     lists: ["wait", (next) ->
       console.log "lists"
       trelloUtil.getLists(idBoard, next)
@@ -54,12 +53,12 @@ beginRound = (idBoard, question) ->
       , next()
     ]
 
-    scoreLists: ["cards", (next, {lists}) ->
+    scoreLists: ["lists", (next, {lists}) ->
       correctList = (_.findWhere lists, { name: question.correctAnswer }).id
       trelloUtil.renameList(question.correctAnswer + " - CORRECT ANSWER!!!", correctList, next)
     ]
 
-    postScoreWait: ["scoreCards", (next) ->
+    postScoreWait: ["scoreCards", "scoreLists", (next) ->
       setTimeout next, 3*1000
     ]
 
@@ -68,6 +67,10 @@ beginRound = (idBoard, question) ->
       async.each cards, (card, next) ->
           trelloUtil.moveCard(card.id, questionList, next)
       , next()
+    ]
+
+    takeABreak: ["moveCardsBack", (next) ->
+      setTimeout next, 3 * 1000
     ]
   , (err) ->
     console.log err if err
