@@ -21,6 +21,7 @@ app.post "/", (req, res) ->
   if not inRound
     inRound = true
     beginRound(secrets.idBoard, questions[questionCounter])
+    questionCounter++
     questionCounter %= questions.length
 
 http.createServer(app).listen app.get('port'), ->
@@ -32,7 +33,7 @@ beginRound = (idBoard, question) ->
     setupQuestions: (next) ->
       setupQuestion(question.question, question.answers, idBoard, next)
 
-    wait: ["lists", (next) ->
+    wait: ["setupQuestions", (next) ->
       setTimeout next, 3 * 1000
     ]
 
