@@ -21,7 +21,7 @@ app.post "/", (req, res) ->
   if not inRound
     inRound = true
     beginRound(secrets.idBoard, questions[questionCounter])
-
+    questionCounter %= questions.length
 
 http.createServer(app).listen app.get('port'), ->
   console.log('Express server listening on port ' + app.get('port'));
