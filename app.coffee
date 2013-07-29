@@ -86,6 +86,7 @@ setupQuestion = (next) =>
       trelloUtil.getLists(idBoard, next)
 
     renameAnswers: [ "lists", (next, {lists} ) ->
+      console.log lists
       async.each _.zip(answers, _.rest (lists)), ([answer, list], next) ->
         console.log answer, list.id
         trelloUtil.renameList(answer, list.id, next)
