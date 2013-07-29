@@ -21,8 +21,7 @@ app.post "/", (req, res) ->
   if not inRound
     inRound = true
     beginRound(secrets.idBoard, questions[questionCounter])
-    questionCounter++
-    questionCounter %= questions.length
+    questionCounter = (questionCounter + 1) % questions.length
 
 http.createServer(app).listen app.get('port'), ->
   console.log('Express server listening on port ' + app.get('port'));
@@ -35,6 +34,12 @@ beginRound = (idBoard, question) ->
 
     wait: ["setupQuestions", (next) ->
       setTimeout next, 3 * 1000
+    ]
+
+
+    lists: ["wait", (next) ->
+      console.log "lists"
+      trelloUtil.getLists(idBoard, next)
     ]
 
     cards: ["wait", (next) ->
@@ -74,15 +79,18 @@ setupQuestion = (question, answers, idBoard, next) ->
   console.log "Setting up next question: #{question}"
   async.auto
     lists: (next) ->
+      console.log "lists"
       trelloUtil.getLists(idBoard, next)
 
     renameAnswers: [ "lists", (next, {lists} ) ->
+      console.log lists
       async.each _.zip(answers, _.rest (lists)), ([answer, list], next) ->
         trelloUtil.renameList(answer, list.id, next)
       , next
     ]
 
     renameQuestion: ["lists", (next, {lists} ) ->
+      console.log "renameQuestion"
       trelloUtil.renameList(question, lists[0].id, next)
     ]
 
