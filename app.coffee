@@ -12,6 +12,17 @@ app = express()
 app.set 'port', argv.port || 3333
 app.use express.logger('dev')
 
+inRound = false
+questionCounter = 0
+
+app.post "/", (req, res) ->
+  res.send('ok')
+  console.log "we got a post, inRound: #{inRound}"
+  if not inRound
+    inRound = true
+    beginRound(secrets.idBoard, questions[questionCounter])
+
+
 http.createServer(app).listen app.get('port'), ->
   console.log('Express server listening on port ' + app.get('port'));
 
@@ -20,10 +31,6 @@ beginRound = (idBoard, question) ->
 
     setupQuestions: (next) ->
       setupQuestion(question.question, question.answers, idBoard, next)
-
-    lists: ["setupQuestions", (next, {setupQuestions}) ->
-      trelloUtil.getLists(idBoard, next)
-    ]
 
     wait: ["lists", (next) ->
       setTimeout next, 3 * 1000
@@ -58,6 +65,7 @@ beginRound = (idBoard, question) ->
     ]
   , (err) ->
     console.log err if err
+    inRound = false
     console.log "done"
 
 
