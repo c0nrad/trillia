@@ -35,7 +35,8 @@ beginRound = () =>
       trelloUtil.getCards(idBoard, next)
     ]
 
-    scoreCards: ["cards", (next, {lists, cards}) ->
+    scoreCards: ["cards", "lists", (next, {lists, cards}) ->
+      console.log "scoreCards", question.correctAnswer, lists
       correctList = (_.findWhere lists, { name: question.correctAnswer }).id
       async.each cards, (card, next) ->
         if card.idList == correctList
