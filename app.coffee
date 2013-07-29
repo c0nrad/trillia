@@ -74,7 +74,7 @@ beginRound = () =>
 
 setupQuestion = (next) =>
   console.log "setupQuestion", globals.currentQuestion
-  questionCounter = Math.floor(Math.random() * questions.length) + 1
+  questionCounter = Math.floor(Math.random() * questions.length)
   globals.currentQuestion = questions[questionCounter]
   question = globals.currentQuestion.question
   answers = globals.currentQuestion.answers
