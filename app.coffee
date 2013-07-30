@@ -20,10 +20,10 @@ globals =
   inRound: false
 
 prefs =
-  incrementalQuestionCounter : true
+  incrementalQuestionCounter : false
   postScoreWait: 3 
   refreshTimeLeftDelta: 5 
-  numberOfRefreshDeltas: 2
+  numberOfRefreshDeltas: 5
 
 winston.info "Starting Trillia", prefs
 
