@@ -8,8 +8,9 @@ _ = require 'underscore'
 trelloUtil = require './api/trelloUtil.coffee'
 
 app = express()
-app.set 'port', argv.port || 3333
+app.set 'port', argv.port || 1338
 app.use express.logger('dev')
+app.use express.bodyParser()
 
 globals = 
   currentQuestion: questions[0]
@@ -17,35 +18,38 @@ globals =
   inRound: false
 
 beginRound = () =>
-  console.log "beginCount", globals.currentQuestion
   idBoard = secrets.idBoard
   question = globals.currentQuestion
 
-  console.log "begin round, currentQuestion #{globals.currentQuestion.question}"
   async.auto
-    wait: (next) ->
-      setTimeout next, 30 * 1000
-
-    lists: ["wait", (next) ->
-      console.log "lists"
+    lists: (next) ->
       trelloUtil.getLists(idBoard, next)
-    ]
 
-    cards: ["wait", (next) ->
+    cards: (next) ->
       trelloUtil.getCards(idBoard, next)
+    
+    wait: ["lists","cards", (next, {lists}) ->
+      numberOfCycles = 6
+      async.timesSeries numberOfCycles, (i, next) =>
+        newMessage = question.question + "<br>Time Left: " + (numberOfCycles - i) * 5 + " seconds"
+        trelloUtil.renameList newMessage, lists[0].id, (err) -> console.log err if err?
+        console.log next, i
+        setTimeout next, 5 * 1000
+      , next
     ]
 
-    scoreCards: ["cards", "lists", (next, {lists, cards}) ->
-      console.log "scoreCards", question.correctAnswer, lists
+    scoreCards: ["wait", (next, {lists, cards}) ->
+      console.log "HERE"
       correctList = (_.findWhere lists, { name: question.correctAnswer }).id
       async.each cards, (card, next) ->
         if card.idList == correctList
           trelloUtil.addCommentToCard(card.id, "WINNER!\nQuestion: #{question.question}\nAnswer: #{question.correctAnswer}", next)
-      , next()
+        else
+          next()
+      , next
     ]
 
-    scoreLists: ["lists", (next, {lists}) ->
-      console.log "scoreList:", question.correctAnswer
+    scoreLists: ["wait", (next, {lists}) ->
       correctList = (_.findWhere lists, { name: question.correctAnswer }).id
       trelloUtil.renameList(question.correctAnswer + " - CORRECT ANSWER!!!", correctList, next)
     ]
@@ -58,11 +62,10 @@ beginRound = () =>
       questionList = (_.findWhere lists, {name: question.question }).id
       async.each cards, (card, next) ->
           trelloUtil.moveCard(card.id, questionList, next)
-      , next()
+      , next
     ]
 
     setupQuestions: ["moveCardsBack", (next) ->
-      console.log "setupQuestionssss", globals.currentQuestion
       setupQuestion(next)
     ]
 
@@ -73,22 +76,18 @@ beginRound = () =>
 
 
 setupQuestion = (next) =>
-  console.log "setupQuestion", globals.currentQuestion
   questionCounter = Math.floor(Math.random() * questions.length)
   globals.currentQuestion = questions[questionCounter]
   question = globals.currentQuestion.question
   answers = globals.currentQuestion.answers
   idBoard = secrets.idBoard
 
-  console.log "Setting up next question: #{question}"
   async.auto
     lists: (next) ->
       trelloUtil.getLists(idBoard, next)
 
     renameAnswers: [ "lists", (next, {lists} ) ->
-      console.log lists
       async.each _.zip(answers, _.rest (lists)), ([answer, list], next) ->
-        console.log answer, list.id
         trelloUtil.renameList(answer, list.id, next)
       , next
     ]
@@ -104,10 +103,12 @@ setupQuestion (err) ->
 
 app.post "/", (req, res) ->
   res.send('ok')
+  if req.body.action.idMemberCreator == secrets.id
+    return
+
   console.log "we got a post, inRound: #{globals.inRound}"
   if not globals.inRound
     globals.inRound = true
-    console.log globals.currentQuestion
     beginRound()
 
 http.createServer(app).listen app.get('port'), ->
