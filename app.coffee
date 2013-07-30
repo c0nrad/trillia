@@ -31,15 +31,13 @@ beginRound = () =>
     wait: ["lists","cards", (next, {lists}) ->
       numberOfCycles = 6
       async.timesSeries numberOfCycles, (i, next) =>
-        newMessage = question.question + "<br>Time Left: " + (numberOfCycles - i) * 5 + " seconds"
+        newMessage = question.question + "\nTime Left: " + (numberOfCycles - i) * 5 + " seconds"
         trelloUtil.renameList newMessage, lists[0].id, (err) -> console.log err if err?
-        console.log next, i
         setTimeout next, 5 * 1000
       , next
     ]
 
     scoreCards: ["wait", (next, {lists, cards}) ->
-      console.log "HERE"
       correctList = (_.findWhere lists, { name: question.correctAnswer }).id
       async.each cards, (card, next) ->
         if card.idList == correctList
