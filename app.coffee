@@ -1,6 +1,6 @@
-express = require('express')
+express = require 'express'
 argv = require('optimist').argv
-http = require('http')
+http = require 'http'
 async = require 'async'
 _ = require 'underscore'
 { secrets } = require './api/secrets.coffee'
