@@ -22,24 +22,32 @@ beginRound = () =>
   question = globals.currentQuestion
 
   async.auto
+    oldLists: (next) ->
+      trelloUtil.getLists(idBoard, next)
+
+    oldCards: (next) ->
+      trelloUtil.getCards(idBoard, next)
+    
+    wait: ["oldLists","oldCards", (next, {oldLists}) ->
+      numberOfCycles = 2
+      async.timesSeries numberOfCycles, (i, next) =>
+        newMessage = question.question + "\nTime Left: " + (numberOfCycles - i) * 5 + " seconds"
+        trelloUtil.renameList newMessage, oldLists[0].id, (err) -> console.log err if err?
+        setTimeout next, 5 * 1000
+      , next
+    ]
+
     lists: (next) ->
       trelloUtil.getLists(idBoard, next)
 
     cards: (next) ->
       trelloUtil.getCards(idBoard, next)
-    
-    wait: ["lists","cards", (next, {lists}) ->
-      numberOfCycles = 6
-      async.timesSeries numberOfCycles, (i, next) =>
-        newMessage = question.question + "\nTime Left: " + (numberOfCycles - i) * 5 + " seconds"
-        trelloUtil.renameList newMessage, lists[0].id, (err) -> console.log err if err?
-        setTimeout next, 5 * 1000
-      , next
-    ]
 
-    scoreCards: ["wait", (next, {lists, cards}) ->
+    scoreCards: ["lists", "cards", (next, {lists, cards}) ->
       correctList = (_.findWhere lists, { name: question.correctAnswer }).id
+      console.log correctList
       async.each cards, (card, next) ->
+        console.log card.idList, correctList
         if card.idList == correctList
           trelloUtil.addCommentToCard(card.id, "WINNER!\nQuestion: #{question.question}\nAnswer: #{question.correctAnswer}", next)
         else
@@ -47,7 +55,7 @@ beginRound = () =>
       , next
     ]
 
-    scoreLists: ["wait", (next, {lists}) ->
+    scoreLists: ["lists", (next, {lists}) ->
       correctList = (_.findWhere lists, { name: question.correctAnswer }).id
       trelloUtil.renameList(question.correctAnswer + " - CORRECT ANSWER!!!", correctList, next)
     ]
