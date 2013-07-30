@@ -15,6 +15,7 @@
     "underscore": "*",
     "querystring": "*",
     "async": "*",
-    "forever": "*"  
+    "forever": "*",
+    "winston": "*"
    }
 }

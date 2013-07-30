@@ -3,21 +3,32 @@ argv = require('optimist').argv
 http = require 'http'
 async = require 'async'
 _ = require 'underscore'
+winston = require 'winston'
 { secrets } = require './api/secrets.coffee'
 { questions } = require './api/questions.coffee'
 trelloUtil = require './api/trelloUtil.coffee'
 
 app = express()
-app.set 'port', argv.port || 1338
+app.set 'port', argv.port || 2337
 app.use express.logger('dev')
 app.use express.bodyParser()
+winston.cli()
 
 globals = 
+  questionIndex: 0
   currentQuestion: questions[0]
-  currentIndex: 0
   inRound: false
 
+prefs =
+  incrementalQuestionCounter : true
+  postScoreWait: 3 
+  refreshTimeLeftDelta: 5 
+  numberOfRefreshDeltas: 2
+
+winston.info "Starting Trillia", prefs
+
 beginRound = () =>
+  winston.info "starting next round!"
   idBoard = secrets.idBoard
   question = globals.currentQuestion
 
@@ -28,12 +39,12 @@ beginRound = () =>
     oldCards: (next) ->
       trelloUtil.getCards(idBoard, next)
     
-    wait: ["oldLists","oldCards", (next, {oldLists}) ->
-      numberOfCycles = 2
-      async.timesSeries numberOfCycles, (i, next) =>
-        newMessage = question.question + "\nTime Left: " + (numberOfCycles - i) * 5 + " seconds"
-        trelloUtil.renameList newMessage, oldLists[0].id, (err) -> console.log err if err?
-        setTimeout next, 5 * 1000
+    wait: ["oldLists","oldCards", (next, {oldLists, oldCards}) ->
+      winston.info "starting wait, found #{oldLists.length} list, and #{oldCards.length} cards"
+      async.timesSeries prefs.numberOfRefreshDeltas, (i, next) =>
+        newMessage = question.question + "\nTime Left: " + (prefs.numberOfRefreshDeltas - i) * prefs.refreshTimeLeftDelta + " seconds"
+        trelloUtil.renameList newMessage, oldLists[0].id, (err) -> winson.error err if err?
+        setTimeout next, prefs.refreshTimeLeftDelta * 1000
       , next
     ]
 
@@ -47,9 +58,7 @@ beginRound = () =>
 
     scoreCards: ["lists", "cards", (next, {lists, cards}) ->
       correctList = (_.findWhere lists, { name: question.correctAnswer }).id
-      console.log correctList
       async.each cards, (card, next) ->
-        console.log card.idList, correctList
         if card.idList == correctList
           trelloUtil.addCommentToCard(card.id, "WINNER!\nQuestion: #{question.question}\nAnswer: #{question.correctAnswer}", next)
         else
@@ -63,11 +72,11 @@ beginRound = () =>
     ]
 
     postScoreWait: ["scoreCards", "scoreLists", (next) ->
-      setTimeout next, 3*1000
+      setTimeout next, prefs.postScoreWait * 1000
     ]
 
     moveCardsBack: ["postScoreWait", (next, {cards, lists}) ->
-      questionList = (_.findWhere lists, {name: question.question }).id
+      questionList = lists[0].id
       async.each cards, (card, next) ->
           trelloUtil.moveCard(card.id, questionList, next)
       , next
@@ -78,18 +87,24 @@ beginRound = () =>
     ]
 
   , (err) ->
-    console.log err if err
+    winston.error err if err
     globals.inRound = false
-    console.log "done"
+    winston.info "finished round"
 
 
 setupQuestion = (next) =>
-  questionCounter = Math.floor(Math.random() * questions.length)
-  globals.currentQuestion = questions[questionCounter]
+  winston.info "setting up question", { incrCounter: prefs.incrementalQuestionCounter }
+  if prefs.incrementalQuestionCounter
+    globals.questionIndex = (1 + globals.questionIndex) % questions.length
+  else # Random
+    globals.questionIndex = Math.floor(Math.random() * questions.length)
+  winston.info "questionIndex", { questionIndex: globals.questionIndex }
+  globals.currentQuestion = questions[globals.questionIndex]
   question = globals.currentQuestion.question
   answers = globals.currentQuestion.answers
   idBoard = secrets.idBoard
 
+  winston.info "next question", globals.currentQuestion
   async.auto
     lists: (next) ->
       trelloUtil.getLists(idBoard, next)
@@ -106,18 +121,20 @@ setupQuestion = (next) =>
 
   , next
 
+
 setupQuestion (err) ->
-  console.log err if err?
+  winston.error err if err?
 
 app.post "/", (req, res) ->
   res.send('ok')
-  if req.body.action.idMemberCreator == secrets.id
+
+  winston.info("post recieved", {inRound: globals.inRound, isTrillia: req.body.action?.idMemberCreator == secrets.id})
+  if req.body.action?.idMemberCreator == secrets.id
     return
 
-  console.log "we got a post, inRound: #{globals.inRound}"
   if not globals.inRound
     globals.inRound = true
     beginRound()
 
 http.createServer(app).listen app.get('port'), ->
-  console.log('Express server listening on port ' + app.get('port'));
+  winston.info "Express server listening on port #{app.get('port')}"
