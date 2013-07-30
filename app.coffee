@@ -37,11 +37,13 @@ beginRound = () =>
       , next
     ]
 
-    lists: (next) ->
+    lists: ["wait", (next) ->
       trelloUtil.getLists(idBoard, next)
+    ]
 
-    cards: (next) ->
+    cards: ["wait", (next) ->
       trelloUtil.getCards(idBoard, next)
+    ]
 
     scoreCards: ["lists", "cards", (next, {lists, cards}) ->
       correctList = (_.findWhere lists, { name: question.correctAnswer }).id
